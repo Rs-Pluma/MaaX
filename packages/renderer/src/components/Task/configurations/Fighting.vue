@@ -1,26 +1,49 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from 'vue'
-import { NFormItem, NInputNumber, NSpace, NSelect, NInputGroup } from 'naive-ui'
 import { gamedata } from '@/api'
+import useResrourceStore from '@/store/resource'
+import useSettingStore from '@/store/settings'
+import _ from 'lodash'
+import { NForm, NFormItem, NInputGroup, NInputNumber, NSelect, NSpace } from 'naive-ui'
+import semver from 'semver'
+import { computed, inject, onMounted, ref } from 'vue'
+
 import type { GetConfig } from './types'
 
 type FightConfig = GetConfig<'Fight'>
+type Stage = {
+  label: string
+  value: string
+}
 
-const { getAllItems } = gamedata
+const resourceStore = useResrourceStore()
+const settingStore = useSettingStore()
+const { getAllItems, getAllStages } = gamedata
 
-// FIXME: 不应该硬编码(
-// 最好也整成图片的选择形式?
-const supportStages = [
+// 标准 / 磨难
+const StageExtraSuffix = {
+  NORMAL: '-NORMAL',
+  TOUGH: '-HARD',
+}
+
+const basicSupportStages: Stage[] = [
   { label: '当前关卡/上次作战', value: '' },
-  { label: 'LE-5', value: 'LE-5' },
-  { label: 'LE-7', value: 'LE-7' },
-  { label: 'LE-8', value: 'LE-8' },
   { label: '1-7', value: '1-7' },
+  { label: '剿灭', value: 'Annihilation' },
   { label: '龙门币-6/5', value: 'CE-6' },
   { label: '经验-6/5', value: 'LS-6' },
   { label: '红票-5', value: 'AP-5' },
   { label: '技能-5', value: 'CA-5' },
+  { label: '重装/医疗-小', value: 'PR-A-1' },
+  { label: '重装/医疗-大', value: 'PR-A-2' },
+  { label: '狙击/术士-小', value: 'PR-B-1' },
+  { label: '狙击/术士-大', value: 'PR-B-2' },
+  { label: '辅助/先锋-小', value: 'PR-C-1' },
+  { label: '辅助/先锋-大', value: 'PR-C-2' },
+  { label: '特种/近卫-小', value: 'PR-D-1' },
+  { label: '特种/近卫-大', value: 'PR-D-2' },
 ]
+
+const supportStages = ref<Stage[]>([])
 
 const props = defineProps<{
   configurations: FightConfig
@@ -91,12 +114,54 @@ function handleDropUpdate(value: { item_id?: string; times?: number }) {
 }
 
 onMounted(async () => {
+  loading.value = true
+
+  const clientType = settingStore.clientType === 'CN' ? 'Official' : settingStore.clientType
+  const coreVersion = settingStore.version.core.current ?? ''
+
+  supportStages.value.push(...basicSupportStages)
+
+  const _now = Date.now()
+  const _sideStoryStage = (resourceStore.stageActivity?.[clientType]?.sideStoryStage ?? [])
+    ?.filter(item => semver.gte(coreVersion, item.MinimumRequired))
+    .filter(item => {
+      if (item.Activity.UtcExpireTime && new Date(item.Activity.UtcExpireTime).getTime() < _now) {
+        return false
+      }
+      return true
+    })
+    .map(item => ({
+      label: item.Display,
+      value: item.Value,
+    }))
+  // 往 "当前/上次" 后插入活动关卡
+  supportStages.value.splice(1, 0, ..._sideStoryStage)
+  const stageResponse = await getAllStages()
+  const mainlineStages = Object.values(stageResponse.stages)
+    .filter(
+      item =>
+        item.stageType === 'MAIN' &&
+        item.difficulty === 'NORMAL' &&
+        item.canBattleReplay == true &&
+        ['NONE', 'NORMAL', 'TOUGH'].includes(item.diffGroup)
+    )
+    .map(item => {
+      const kv =
+        item.diffGroup === 'NONE'
+          ? item.code
+          : item.code + StageExtraSuffix[item.diffGroup as keyof typeof StageExtraSuffix]
+      return {
+        label: kv,
+        value: kv,
+      }
+    })
+
+  supportStages.value.push(...mainlineStages)
   if (!props.configurations.drops) {
     handleUpdateConfiguration('drops', {})
   }
-  loading.value = true
-  const response = await getAllItems()
-  allItems.value = Object.values(response.items)
+  const itemResponse = await getAllItems()
+  allItems.value = Object.values(itemResponse.items)
     .filter(item => item.stageDropList.length !== 0)
     .filter(item => !['ACTIVITY_ITEM', 'ET_STAGE'].includes(item.itemType))
     .map(item => ({
@@ -109,110 +174,81 @@ onMounted(async () => {
 
 <template>
   <div class="configuration-form">
-    <NSpace vertical>
-      <NFormItem
-        label="选择关卡"
-        :show-label="true"
-        size="small"
-        label-align="left"
-        label-placement="left"
-        :show-feedback="false"
-      >
-        <NSelect
-          :disabled="configurationDisabled.nre"
-          :value="props.configurations.stage"
-          :options="supportStages"
-          @update:value="value => handleUpdateConfiguration('stage', value)"
-        />
-      </NFormItem>
-      <NFormItem
-        label="作战次数"
-        :show-label="true"
-        size="small"
-        label-align="left"
-        label-placement="left"
-        :show-feedback="false"
-      >
-        <NInputNumber
-          :min="0"
-          :max="999"
-          :disabled="configurationDisabled.re"
-          :value="props.configurations.times"
-          :update-value-on-input="false"
-          @update:value="handleTimesUpdate"
-        />
-      </NFormItem>
-      <NFormItem
-        label="使用理智液数量"
-        :show-label="true"
-        size="small"
-        label-align="left"
-        label-placement="left"
-        :show-feedback="false"
-      >
-        <NInputNumber
-          :min="0"
-          :max="999"
-          :disabled="configurationDisabled.re"
-          :value="props.configurations.medicine"
-          :update-value-on-input="false"
-          @update:value="handleMedicineUpdate"
-        />
-      </NFormItem>
-      <NFormItem
-        label="使用源石数量"
-        :show-label="true"
-        size="small"
-        label-align="left"
-        label-placement="left"
-        :show-feedback="false"
-      >
-        <NInputNumber
-          :min="0"
-          :max="999"
-          :disabled="configurationDisabled.re"
-          :value="props.configurations.stone"
-          :update-value-on-input="false"
-          @update:value="handleStoneUpdate"
-        />
-      </NFormItem>
-      <NFormItem
-        label="掉落物选择"
-        :show-label="true"
-        size="small"
-        label-align="left"
-        label-placement="left"
-        :show-feedback="false"
-      >
-        <NInputGroup>
+    <NForm
+      size="small"
+      label-align="left"
+      label-placement="left"
+      label-width="auto"
+      :show-feedback="false"
+    >
+      <NSpace vertical>
+        <NFormItem label="选择关卡">
           <NSelect
-            placeholder="掉落物（可为空）"
-            :options="allItems"
-            :loading="loading"
+            :disabled="configurationDisabled.nre"
+            :value="props.configurations.stage"
+            :options="supportStages"
             filterable
-            clearable
-            :disabled="configurationDisabled.re"
-            :value="drops.item_id"
-            @update:value="value => handleDropUpdate({ item_id: value, times: drops.times })"
+            :loading="loading"
+            @update:value="value => handleUpdateConfiguration('stage', value)"
           />
+        </NFormItem>
+        <NFormItem label="作战次数">
           <NInputNumber
-            placeholder="数量"
-            :disabled="!drops.item_id || configurationDisabled.re"
-            :style="{ width: '60px' }"
-            :show-button="false"
-            :value="drops.times"
             :min="0"
             :max="999"
-            @update:value="
-              value =>
-                handleDropUpdate({
-                  item_id: drops.item_id,
-                  times: value ?? undefined,
-                })
-            "
+            :disabled="configurationDisabled.re"
+            :value="props.configurations.times"
+            :update-value-on-input="false"
+            @update:value="handleTimesUpdate"
           />
-        </NInputGroup>
-      </NFormItem>
-    </NSpace>
+        </NFormItem>
+        <NFormItem label="使用理智液数量">
+          <NInputNumber
+            :min="0"
+            :max="999"
+            :disabled="configurationDisabled.re"
+            :value="props.configurations.medicine"
+            :update-value-on-input="false"
+            @update:value="handleMedicineUpdate"
+          />
+        </NFormItem>
+        <NFormItem label="使用源石数量">
+          <NInputNumber
+            :min="0"
+            :max="999"
+            :disabled="configurationDisabled.re"
+            :value="props.configurations.stone"
+            :update-value-on-input="false"
+            @update:value="handleStoneUpdate"
+          />
+        </NFormItem>
+        <NFormItem label="掉落物选择">
+          <NInputGroup>
+            <NSelect
+              placeholder="掉落物（可为空）"
+              :options="allItems"
+              :loading="loading"
+              filterable
+              clearable
+              :disabled="configurationDisabled.re"
+              :value="drops.item_id"
+              @update:value="value => handleDropUpdate({ item_id: value, times: drops.times })"
+            />
+            <NInputNumber
+              placeholder="数量"
+              :disabled="!drops.item_id || configurationDisabled.re"
+              :style="{ width: '60px' }"
+              :show-button="false"
+              :value="drops.times"
+              :min="0"
+              :max="999"
+              @update:value="
+                value => handleDropUpdate({ item_id: drops.item_id, times: value ?? undefined })
+              "
+            />
+          </NInputGroup>
+        </NFormItem>
+      </NSpace>
+    </NForm>
   </div>
 </template>

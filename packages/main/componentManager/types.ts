@@ -20,6 +20,7 @@ export type UpdateStatus =
     }
 
 export interface Installer {
+  readonly sources: SourceMirror[]
   readonly componentType: ComponentType
   readonly componentDir: string
 
@@ -42,4 +43,9 @@ export interface Notifier {
   onCompleted(): void
   onDownloadedUpgrade(): void
   onException(): void
+}
+
+export interface SourceMirror {
+  readonly name: string
+  readonly urlReplacer: (oldUrl: string) => string
 }

@@ -1,24 +1,22 @@
 <script setup lang="ts">
+import GlobalNotifier from '@/components/GlobalNotifier.vue'
 import WindowController from '@/components/WindowController.vue'
 import Main from '@/containers/Main.vue'
 import SideBar from '@/containers/SideBar.vue'
-import GlobalNotifier from '@/components/GlobalNotifier.vue'
-
-import {
-  NGlobalStyle,
-  NConfigProvider,
-  NMessageProvider,
-  NDialogProvider,
-  GlobalThemeOverrides,
-  darkTheme,
-  ThemeCommonVars,
-} from 'naive-ui'
-import { naiveUiLocale } from '@/i18n'
-import useThemeStore from '@/store/theme'
-import useSettingStore, { Locale } from '@/store/settings'
 import { initHook } from '@/hooks'
-import { onMounted, computed } from 'vue'
+import { naiveUiLocale } from '@/i18n'
+import useSettingStore, { Locale } from '@/store/settings'
+import useThemeStore from '@/store/theme'
 import { transparentize } from 'color2k'
+import {
+  NConfigProvider,
+  NDialogProvider,
+  NGlobalStyle,
+  NMessageProvider,
+  darkTheme,
+} from 'naive-ui'
+import type { GlobalThemeOverrides, ThemeCommonVars } from 'naive-ui'
+import { computed, onMounted } from 'vue'
 
 // initialStore()
 
@@ -68,6 +66,9 @@ const darkThemeOverrides: GlobalThemeOverrides = {
     primaryColorPressed: '#80cf98',
     primaryColorSuppl: '#b9e4c6',
     ...commonThemeOverrides,
+  },
+  Checkbox: {
+    checkMarkColor: '#000',
   },
 }
 

@@ -1,12 +1,14 @@
+import logger from '@/hooks/caller/logger'
 import storage from '@/hooks/caller/storage'
+import type { CoreTaskName, FrontTaskName } from '@type/task'
 import { type Store } from 'pinia'
 
+import useComponentStore, { type ComponentStoreState } from './components'
 import useDeviceStore, { type DeviceState } from './devices'
+import useResourceStore, { type ResourceState } from './resource'
 import useSettingStore, { type SettingState } from './settings'
 import useTaskStore, { type TaskState } from './tasks'
 import useThemeStore, { type ThemeState } from './theme'
-import logger from '@/hooks/caller/logger'
-import type { CoreTaskName, FrontTaskName } from '@type/task'
 
 type Patcher<T> = (storage: T) => T
 
@@ -16,6 +18,8 @@ export async function initialStore(): Promise<void> {
     setting: useSettingStore(),
     tasks: useTaskStore(),
     theme: useThemeStore(),
+    component: useComponentStore(),
+    resource: useResourceStore(),
   }
 
   const patcher: Record<string, Patcher<any>> = {
@@ -23,7 +27,7 @@ export async function initialStore(): Promise<void> {
       storage.devices = storage.devices.map(device => ({
         ...device,
         status: 'unknown',
-        address: '',
+        address: device.config === 'General' ? device.address : '', // General为手动创建连接的设备, 默认不重置地址
         pid: '',
       }))
       return storage
@@ -34,12 +38,15 @@ export async function initialStore(): Promise<void> {
     tasks: (storage: TaskState) => {
       for (const taskGroups of Object.values(storage.deviceTasks)) {
         for (const taskGroup of taskGroups.groups) {
-          for (const task of taskGroup.tasks) {
+          taskGroup.tasks = taskGroup.tasks.filter(task => {
             task.name = (task.name.slice(0, 1).toUpperCase() + task.name.slice(1)) as
               | CoreTaskName
               | FrontTaskName
             if ((task.name as string) === 'Rogue') {
               task.name = 'Roguelike'
+            }
+            if ((task.name as string) === 'Idle') {
+              return false // "delete" idle
             }
             task.progress = 0
             task.startTime = undefined
@@ -47,12 +54,19 @@ export async function initialStore(): Promise<void> {
             task.status = 'idle'
             task.results = {}
             task.showResult = false
-          }
+            return true // keep the task
+          })
         }
       }
       return storage
     },
     theme: (storage: ThemeState) => {
+      return storage
+    },
+    component: (storage: ComponentStoreState) => {
+      return storage
+    },
+    resource: (storage: ResourceState) => {
       return storage
     },
   }
@@ -71,6 +85,6 @@ export async function initialStore(): Promise<void> {
 
   Promise.all(promises).then(() => {
     logger.debug('finish loading store')
-    window.ipcRenderer.invoke('main.WindowManager:loaded')
+    window.main.WindowManager.loaded()
   })
 }

@@ -1,22 +1,23 @@
-import { app, BrowserWindow, shell } from 'electron'
-import { release } from 'os'
-import { join } from 'path'
-import fs from 'fs'
-import vibe from '@pyke/vibe'
-
-import useDebug from '@main/utils/debug'
-import logger from '@main/utils/logger'
-import useHooks from '@main/hooks'
-import { getPlatform, isInDev } from '@main/utils/os'
-
-// modules
-import WindowManager from '@main/windowManager'
-import StorageManager from '@main/storageManager'
 import ComponentManager from '@main/componentManager'
 import CoreLoader from '@main/coreLoader'
 import DeviceDetector from '@main/deviceDetector'
+import useHooks from '@main/hooks'
+import StorageManager from '@main/storageManager'
+import useDebug from '@main/utils/debug'
+import logger from '@main/utils/logger'
+import { getPlatform, isInDev } from '@main/utils/os'
+// modules
+import WindowManager from '@main/windowManager'
+import { BrowserWindow, app, shell } from 'electron'
+import fs from 'fs'
+import { release } from 'os'
+import { join } from 'path'
+
 import DownloadManager from './downloadManager'
+import { setupHookProxy } from './utils/ipc-main'
 import { getAppBaseDir } from './utils/path'
+
+require('source-map-support').install()
 
 // Disable GPU Acceleration for Windows 7
 if (release().startsWith('6.1')) app.disableHardwareAcceleration()
@@ -24,12 +25,18 @@ if (release().startsWith('6.1')) app.disableHardwareAcceleration()
 // Set application name for Windows 10+ notifications
 if (getPlatform() === 'windows') app.setAppUserModelId(app.getName())
 
+logger.info(`Electron version: ${process.versions.electron}`)
+logger.info(`Chromium version: ${process.versions.chrome}`)
+logger.info(`Node version: ${process.versions.node}`)
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
   process.exit(0)
 }
 
 async function createApp(): Promise<void> {
+  setupHookProxy()
+
   const win = new WindowManager().getWindow()
   if (app.isPackaged || !isInDev()) {
     win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -60,7 +67,9 @@ async function createApp(): Promise<void> {
   useHooks()
   if (isInDev()) {
     logger.warn('You are in development mode')
-    useDebug(win)
+    win.webContents.on('did-frame-finish-load', () => {
+      useDebug(win)
+    })
   }
 
   // Make all links open with the browser, not with the application
@@ -68,9 +77,21 @@ async function createApp(): Promise<void> {
     if (url.startsWith('https:')) shell.openExternal(url)
     return { action: 'deny' }
   })
-}
 
-vibe.setup(app)
+  // bypass cors
+  win.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
+    callback({ requestHeaders: { Origin: '*', ...details.requestHeaders } })
+  })
+
+  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        'Access-Control-Allow-Headers': ['*'],
+        ...details.responseHeaders,
+      },
+    })
+  })
+}
 
 app.whenReady().then(createApp)
 

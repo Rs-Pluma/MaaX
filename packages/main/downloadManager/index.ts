@@ -1,12 +1,12 @@
-import fs from 'fs'
-import path from 'path'
-import type { BrowserWindow } from 'electron'
-
 import { Singleton } from '@main/../common/function/singletonDecorator'
+import logger from '@main/utils/logger'
+import { getAppBaseDir } from '@main/utils/path'
 import WindowManager from '@main/windowManager'
 import type { DownloadHandle, DownloadTask } from '@type/downloadManager'
 import type { Module } from '@type/misc'
-import { getAppBaseDir } from '@main/utils/path'
+import type { BrowserWindow } from 'electron'
+import fs from 'fs'
+import path from 'path'
 
 @Singleton
 export default class DownloadManager implements Module {
@@ -43,7 +43,7 @@ export default class DownloadManager implements Module {
           totalBytes: item.getTotalBytes(),
           receivedBytes: 0,
           prevReceivedBytes: 0,
-          precent: 0,
+          percent: 0,
         },
         paused: item.isPaused(),
         savePath: item.getSavePath(),
@@ -67,7 +67,7 @@ export default class DownloadManager implements Module {
         task.progress.receivedBytes = receivedBytes
         task.progress.prevReceivedBytes = receivedBytes
         task.progress.totalBytes = totalBytes
-        task.progress.precent = totalBytes ? receivedBytes / totalBytes : undefined
+        task.progress.percent = totalBytes ? receivedBytes / totalBytes : undefined
         task.paused = item.isPaused()
 
         handler.handleDownloadUpdate(task)
@@ -84,7 +84,9 @@ export default class DownloadManager implements Module {
             break
           case 'cancelled':
           case 'interrupted':
-            fs.rmSync(path.join(item.getSavePath(), item.getFilename()))
+            if (fs.existsSync(item.getSavePath())) {
+              fs.rmSync(item.getSavePath())
+            }
             handler.handleDownloadInterrupted()
             break
         }
@@ -110,6 +112,7 @@ export default class DownloadManager implements Module {
       })
     }
     this.pendingTaskHandler = handler
+    logger.info(`Start downloading, url: ${url}`)
     this.window.webContents.downloadURL(url)
   }
 

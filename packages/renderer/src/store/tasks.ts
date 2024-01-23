@@ -1,8 +1,8 @@
-import { defineStore } from 'pinia'
-import _ from 'lodash'
-import { compareObjKey } from '@/utils/task_helper'
 import logger from '@/hooks/caller/logger'
+import { compareObjKey } from '@/utils/task_helper'
 import type { GetTask, Task, TaskGroup, TaskGroups, TaskStatus } from '@type/task'
+import _ from 'lodash'
+import { defineStore } from 'pinia'
 
 export interface TaskState {
   deviceTasks: Record<string, TaskGroups>
@@ -143,6 +143,7 @@ export const taskTemplate: {
       shopping: true,
       buy_first: ['龙门币', '招聘许可', '赤金'],
       blacklist: ['家具零件', '加急许可'],
+      force_shopping_if_credit_full: false,
     },
     results: {},
   },
@@ -188,17 +189,6 @@ export const taskTemplate: {
     },
     results: {},
   },
-  Idle: {
-    name: 'Idle',
-    task_id: -1,
-    title: '挂机',
-    status: 'idle',
-    enable: false,
-    configurations: {
-      delay: 600,
-    },
-    results: {},
-  },
   // ReclamationAlgorithm: {
   //   name: 'ReclamationAlgorithm',
   //   task_id: -1,
@@ -228,7 +218,6 @@ const defaultTaskConf: typeof taskTemplate = {
   Award: _.cloneDeep(taskTemplate.Award),
   Roguelike: _.cloneDeep(taskTemplate.Roguelike),
   Shutdown: _.cloneDeep(taskTemplate.Shutdown),
-  Idle: _.cloneDeep(taskTemplate.Idle),
 }
 
 export const defaultTask = Object.values(defaultTaskConf)
@@ -246,7 +235,7 @@ const useTaskStore = defineStore<'tasks', TaskState, {}, TaskAction>('tasks', {
       if (task) {
         const configurations = _.set(task.configurations, key, value)
         if (task.task_id > 0 && ['processing', 'waiting'].includes(task.status)) {
-          window.ipcRenderer.invoke('main.CoreLoader:setTaskParams', {
+          window.main.CoreLoader.setTaskParams({
             uuid,
             task_id: task.task_id,
             params: configurations,

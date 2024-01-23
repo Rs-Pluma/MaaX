@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { domReady } from './utils'
+
+import type { IpcMainHandleEvent, IpcRendererOnEvent } from '../types/ipc'
 import { useLoading } from './loading'
+import { domReady } from './utils'
 
 const { appendLoading, removeLoading } = useLoading()
 
@@ -19,10 +21,6 @@ const ipc = {
     ipcRenderer.send('main.Util:LogSilly', `ipcRenderer event "${channel}" registered`)
     return ipcRenderer.on(channel, listener)
   },
-  send: (channel: IpcMainOnEvent, ...args: any[]): void => {
-    ipcRenderer.send('main.Util:LogSilly', `ipcMain event "${channel}" sent`)
-    ipcRenderer.send(channel, ...args)
-  },
   invoke: (channel: IpcMainHandleEvent, ...args: any[]): Promise<any> => {
     ipcRenderer.send('main.Util:LogSilly', `ipcMain event "${channel}" invoked`)
     return ipcRenderer.invoke(channel, ...args)
@@ -33,6 +31,10 @@ const ipc = {
   ): Electron.IpcRenderer => {
     ipcRenderer.send('main.Util:LogSilly', `ipcRenderer event "${channel}" unregistered`)
     return ipcRenderer.off(channel, listener)
+  },
+  offAll: (channel: IpcRendererOnEvent): Electron.IpcRenderer => {
+    ipcRenderer.send('main.Util:LogSilly', `ipcRenderer event "${channel}" all unregistered`)
+    return ipcRenderer.removeAllListeners(channel)
   },
 }
 

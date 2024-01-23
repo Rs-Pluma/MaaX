@@ -1,6 +1,6 @@
+import useSettingStore from '@/store/settings'
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import _ from 'lodash'
-import useSettingStore from '@/store/settings'
 
 const getUA = (): string => {
   const settingStore = useSettingStore()
@@ -19,11 +19,12 @@ class ApiService {
 
     this._instance.interceptors.request.use(
       async request => {
-        const UA = getUA()
-        await window.ipcRenderer.invoke('main.Util:updateUA', { urls: [baseUrl + '/*'], UA: UA })
         request.headers = {
           ...request.headers,
-          // 'User-Agent': getUA(),
+        }
+        const isInDev = await window.main.Util.isInDev()
+        if (!isInDev) {
+          request.headers['User-Agent'] = getUA()
         }
         return request
       },
@@ -42,7 +43,7 @@ class ApiService {
     )
   }
 
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T> | Error> {
+  async get<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     const response = await this._instance.get(url, config)
     if (_.isError(response)) {
       throw response

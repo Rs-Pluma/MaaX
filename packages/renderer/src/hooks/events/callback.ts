@@ -1,15 +1,10 @@
-import useDeviceStore from '@/store/devices'
-import useTaskStore from '@/store/tasks'
-import useSettingStore from '@/store/settings'
-
-import { showMessage } from '@/utils/message'
-import type { MessageReactive } from 'naive-ui'
-
+import { type DropInfo, postDrop } from '@/api/penguin'
 import logger from '@/hooks/caller/logger'
-import _ from 'lodash'
-
-import { postDrop, type DropInfo } from '@/api/penguin'
+import useDeviceStore from '@/store/devices'
 import { useSeperateTaskStore } from '@/store/seperateTask'
+import useSettingStore from '@/store/settings'
+import useTaskStore from '@/store/tasks'
+import { showMessage } from '@/utils/message'
 import type { CoreTaskName, GetTask, TaskStatus } from '@type/task'
 import {
   AsstMsg,
@@ -17,6 +12,8 @@ import {
   type CallbackMapper,
   type SubTaskRelatedMsg,
 } from '@type/task/callback'
+import _ from 'lodash'
+import type { MessageReactive } from 'naive-ui'
 
 const messages: Record<string, MessageReactive> = {}
 
@@ -85,24 +82,26 @@ export default function useCallbackEvents(): void {
                   server: task.configurations.server as string,
                   drops,
                 }
-                if (drops.length > 0) {
-                  postDrop(report)
-                    .then(response => {
-                      task.results.fightInfo[resultIndex].reported = true
-                      const reportId = response.headers['x-penguin-set-penguinid']
-                      if (reportId) {
-                        settingStore.penguinReportId = reportId
-                        if (settingStore.yituliuReportId.trim() === '') {
-                          settingStore.yituliuReportId = reportId
-                        }
+                postDrop(report)
+                  .then(response => {
+                    task.results.fightInfo[resultIndex].reported = true
+                    const reportId = response.headers['x-penguin-set-penguinid']
+                    const reportHash = response.data.reportHash ?? ''
+                    if (reportId) {
+                      settingStore.penguinReportId = reportId
+                      if (settingStore.yituliuReportId.trim() === '') {
+                        settingStore.yituliuReportId = reportId
                       }
-                    })
-                    .catch(error => {
-                      task.results.fightInfo[resultIndex].report_error = true
-                      window.$message.error('上报企鹅物流失败')
-                      logger.error('上报企鹅物流失败', error)
-                    })
-                }
+                    }
+                    logger.info(
+                      `[Report] report to penguin successfully. reportId:${settingStore.penguinReportId}, reportHash:${reportHash}`
+                    )
+                  })
+                  .catch(error => {
+                    task.results.fightInfo[resultIndex].report_error = true
+                    window.$message.error('上报企鹅物流失败')
+                    logger.error('上报企鹅物流失败', error)
+                  })
               }
             }
             break
@@ -309,6 +308,14 @@ export default function useCallbackEvents(): void {
       }
       taskStore.resetToIdle(data.uuid.trim())
     },
+    [AsstMsg.AsyncCallInfo]: data => {
+      switch (data.what) {
+        case 'Screencap': {
+          break
+          // 截图事件在组件内特殊处理
+        }
+      }
+    },
     [AsstMsg.TaskChainError]: data => {
       const taskStore = useTaskStore()
       taskStore.updateTaskStatus(data.uuid.trim(), data.taskid, 'exception', 0)
@@ -350,7 +357,7 @@ export default function useCallbackEvents(): void {
     },
   }
 
-  window.ipcRenderer.on('renderer.CoreLoader:callback', (event, callback: Callback) => {
+  window.renderer.CoreLoader.callback = callback => {
     const { code } = callback
     if (callbackFn[code]) {
       logger.debug(`[callback] handle AsstMsg:${code}:`)
@@ -366,5 +373,5 @@ export default function useCallbackEvents(): void {
       logger.debug(`[callback] unhandle AsstMsg:${code}`)
       logger.debug(callback)
     }
-  })
+  }
 }

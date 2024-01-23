@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
-import { NAvatar, NButton, NCard, NSwitch, NTag, NTooltip } from 'naive-ui'
-import { ref } from 'vue'
 import { useSeperateTaskStore } from '@/store/seperateTask'
 import { getOperatorAvatar } from '@/utils/game_image'
 import { showMessage } from '@/utils/message'
-import { AsstMsg, type SubTaskExtraInfoMapper } from '@type/task/callback'
 import type { GetTask } from '@type/task'
+import { AsstMsg, type CallbackMapper, type SubTaskExtraInfoMapper } from '@type/task/callback'
+import { NAvatar, NButton, NCard, NSwitch, NTag, NTooltip } from 'naive-ui'
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 type RecruitResult = SubTaskExtraInfoMapper['RecruitResult']
 
@@ -74,7 +74,7 @@ async function doRecruit(selectTags: string[] = []) {
     skip_robot: false,
   }
   processing.value = true
-  taskId.value = await window.ipcRenderer.invoke('main.CoreLoader:appendTask', {
+  taskId.value = await window.main.CoreLoader.appendTask({
     uuid: currentUuid,
     type: 'Recruit',
     params: {
@@ -88,7 +88,7 @@ async function doRecruit(selectTags: string[] = []) {
     }
     switch (msg) {
       case AsstMsg.SubTaskExtraInfo: {
-        const d = data
+        const d = data as CallbackMapper[AsstMsg.SubTaskExtraInfo]
         if (d.what === 'RecruitResult') {
           result.value = d.details
         }
@@ -104,14 +104,14 @@ async function doRecruit(selectTags: string[] = []) {
     }
     return false
   })
-  await window.ipcRenderer.invoke('main.CoreLoader:start', {
+  await window.main.CoreLoader.start({
     uuid: currentUuid,
   })
 }
 </script>
 
 <template>
-  <NCard>
+  <NCard :bordered="false">
     <template #header>
       <div class="RecruitResultHeader">
         <div class="RecruitResultTitle">公招计算</div>

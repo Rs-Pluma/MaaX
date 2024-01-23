@@ -1,13 +1,13 @@
 import useSettingStore from '@/store/settings'
 import { loadCoreResources } from '@/utils/core_functions'
-import type { ComponentType, ComponentStatus } from '@type/componentManager'
+import type { ComponentStatus, ComponentType } from '@type/componentManager'
 
 export default {
   load: async function (showTip = true) {
     let loaded = true
     const settingStore = useSettingStore()
 
-    loaded = await window.ipcRenderer.invoke('main.CoreLoader:load')
+    loaded = await window.main.CoreLoader.load()
     if (loaded) {
       await loadCoreResources('CN')
     }
@@ -19,7 +19,7 @@ export default {
     window.removeLoading()
 
     const components: Partial<Record<ComponentType, ComponentStatus>> = {
-      'Maa Core': await window.ipcRenderer.invoke('main.ComponentManager:getStatus', 'Maa Core'),
+      'Maa Core': await window.main.ComponentManager.getStatus('Maa Core'),
     }
 
     const showError = showTip ? window.$message.error : undefined
@@ -53,6 +53,6 @@ export default {
 
     return loaded
   },
-  dispose: async () => await window.ipcRenderer.invoke('main.CoreLoader:dispose'),
-  upgradeCore: async () => await window.ipcRenderer.invoke('main.CoreLoader:upgrade'),
+  dispose: async () => await window.main.CoreLoader.dispose(),
+  upgradeCore: async () => await window.main.CoreLoader.upgrade(),
 }

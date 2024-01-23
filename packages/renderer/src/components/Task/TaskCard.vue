@@ -1,27 +1,25 @@
 <script setup lang="ts">
+import router from '@/router'
+import useDeviceStore from '@/store/devices'
+import useThemeStore from '@/store/theme'
+import type { Task, TaskStatus } from '@type/task'
 import {
-  NProgress,
-  NSwitch,
+  NButton,
   NCollapse,
   NCollapseItem,
+  NIcon,
+  NProgress,
   NScrollbar,
   NSpace,
-  useThemeVars,
-  NIcon,
-  NTooltip,
-  NButton,
+  NSwitch,
   NText,
+  NTooltip,
+  useThemeVars,
 } from 'naive-ui'
-import { ref, nextTick, computed, provide } from 'vue'
+import { computed, nextTick, provide, ref } from 'vue'
+
 import DropdownMenu from './DropdownMenu.vue'
-import router from '@/router'
-import useThemeStore from '@/store/theme'
 import Timer from './Timer.vue'
-import { SettingsOutline as IconSettings } from '@vicons/ionicons5'
-import IconAdd from '@/assets/icons/add.svg?component'
-import IconRemove from '@/assets/icons/remove.svg?component'
-import useDeviceStore from '@/store/devices'
-import type { Task, TaskStatus } from '@type/task'
 
 const themeVars = useThemeVars()
 const themeStore = useThemeStore()
@@ -46,19 +44,19 @@ const _isCollapsed = computed(() => {
   return props.isCollapsed && innerCollapse.value
 })
 
-const dropdownPosition = ref({
+const contentMenuPosition = ref({
   x: 0,
   y: 0,
 })
 
-const showDropdown = ref(false)
+const showContentMenu = ref(false)
 
-const handleShowDropdown = (e: MouseEvent) => {
+const handleShowContentMenu = (e: MouseEvent) => {
   e.preventDefault()
-  showDropdown.value = false
+  showContentMenu.value = false
   nextTick().then(() => {
-    showDropdown.value = true
-    dropdownPosition.value = {
+    showContentMenu.value = true
+    contentMenuPosition.value = {
       x: e.clientX,
       y: e.clientY,
     }
@@ -66,10 +64,28 @@ const handleShowDropdown = (e: MouseEvent) => {
 }
 
 const handleTogglePanel = (panelType: string) => {
-  if (panelType === 'configuration-panel') {
-    emit('update:showResult', false)
-  } else {
-    emit('update:showResult', true)
+  switch (panelType) {
+    case 'configuration-panel':
+      emit('update:showResult', false)
+      innerCollapse.value = false
+      break
+    case 'result-panel':
+      emit('update:showResult', true)
+      innerCollapse.value = false
+      break
+    case 'copy-task':
+      emit('copy')
+      break
+    case 'delete-task':
+      emit('delete')
+      break
+  }
+}
+
+const handleToggleInnerCollapse = () => {
+  if (props.isCollapsed) {
+    // 详细模式下不允许inner折叠
+    innerCollapse.value = !innerCollapse.value
   }
 }
 
@@ -121,19 +137,19 @@ provide(
     :expanded-names="_isCollapsed ? null : '1'"
     class="task-card"
     :class="props.taskInfo.status === 'idle' ? '' : 'undraggable'"
+    @contextmenu="handleShowContentMenu"
   >
     <template #arrow>
       <span />
     </template>
     <NCollapseItem
       class="task-card-inner"
-      :class="
-        [
-          _isCollapsed ? 'collapsed' : '',
-          `task-card__status-${props.taskInfo.status}`,
-          !innerCollapse && props.isCollapsed ? 'inner-expanded' : '',
-        ].join(' ')
-      "
+      :class="[
+        _isCollapsed ? 'collapsed' : '',
+        `task-card__status-${props.taskInfo.status}`,
+        !innerCollapse && props.isCollapsed ? 'inner-expanded' : '',
+        !props.isCollapsed ? 'expanded' : '',
+      ]"
       name="1"
       display-directive="show"
       :style="{
@@ -142,8 +158,8 @@ provide(
       }"
     >
       <template #header>
-        <div style="width: 100%">
-          <div ref="cardHeaderRef" class="card-header">
+        <div style="width: 100%" @click="handleToggleInnerCollapse">
+          <div class="card-header">
             <NSpace>
               <span class="card-title">{{ props.taskInfo.title || '' }}</span>
               <div
@@ -161,58 +177,6 @@ provide(
               </div>
             </NSpace>
             <NSpace justify="end" align="center">
-              <NTooltip v-if="props.isCollapsed">
-                <template #trigger>
-                  <NButton
-                    text
-                    style="font-size: 25px"
-                    @click="
-                      () => {
-                        innerCollapse = !innerCollapse
-                      }
-                    "
-                  >
-                    <NIcon>
-                      <IconSettings />
-                    </NIcon>
-                  </NButton>
-                </template>
-                {{ _isCollapsed ? '展开' : '折叠' }}设置
-              </NTooltip>
-              <NTooltip>
-                <template #trigger>
-                  <NButton
-                    text
-                    style="font-size: 25px"
-                    :disabled="
-                      deviceStatus === 'tasking' && !['idle'].includes(props.taskInfo.status)
-                    "
-                    @click="() => $emit('copy')"
-                  >
-                    <NIcon>
-                      <IconAdd />
-                    </NIcon>
-                  </NButton>
-                </template>
-                复制当前任务
-              </NTooltip>
-              <NTooltip>
-                <template #trigger>
-                  <NButton
-                    text
-                    style="font-size: 25px"
-                    :disabled="
-                      deviceStatus === 'tasking' && !['idle'].includes(props.taskInfo.status)
-                    "
-                    @click="() => $emit('delete')"
-                  >
-                    <NIcon>
-                      <IconRemove />
-                    </NIcon>
-                  </NButton>
-                </template>
-                删除当前任务
-              </NTooltip>
               <div class="card-progress-wrapper">
                 <span
                   v-if="
@@ -248,6 +212,8 @@ provide(
                 <NSwitch
                   v-else
                   :value="props.taskInfo.enable"
+                  @click.left.stop="() => {}"
+                  @click.right.stop="() => {}"
                   @update:value="
                     enabled => {
                       $emit('update:enable', enabled)
@@ -268,15 +234,16 @@ provide(
         </div>
       </template>
       <div class="card-content">
-        <NScrollbar @contextmenu="handleShowDropdown">
+        <NScrollbar>
           <slot />
         </NScrollbar>
         <DropdownMenu
-          v-model:show="showDropdown"
-          :x="dropdownPosition.x"
-          :y="dropdownPosition.y"
+          v-model:show="showContentMenu"
+          :x="contentMenuPosition.x"
+          :y="contentMenuPosition.y"
           @select="handleTogglePanel"
-        />
+        >
+        </DropdownMenu>
       </div>
     </NCollapseItem>
   </NCollapse>
@@ -287,11 +254,13 @@ provide(
   from {
     box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 0 5px 0 transparent;
   }
+
   to {
     box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.1),
       0 0 10px var(--breathe-color);
   }
 }
+
 .task-card {
   user-select: none;
   transition: width 0.3s var(--n-bezier);
@@ -313,9 +282,9 @@ provide(
   }
 
   &.inner-expanded .card-content {
-    height: auto;
-    min-height: auto;
-    aspect-ratio: auto;
+    height: unset;
+    min-height: unset;
+    aspect-ratio: unset;
   }
 
   &.task-card__status-processing {
@@ -351,6 +320,9 @@ provide(
   max-width: 100%;
   padding: 0 12px;
   transition: height 0.3s var(--n-bezier);
+}
+
+.expanded .card-content {
   aspect-ratio: 9 / 4;
   min-height: 120px;
 }

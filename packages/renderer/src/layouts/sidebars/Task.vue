@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import IconSettings from '@/assets/icons/settings.svg?component'
 import IconDevices from '@/assets/icons/devices.svg?component'
+import IconSettings from '@/assets/icons/settings.svg?component'
 import IconTool from '@/assets/icons/tool.svg?component'
-import { NIcon, NSpace, NButton, NTooltip } from 'naive-ui'
 import DeviceCard from '@/components/Device/DeviceCard.vue'
+import DeviceMenu from '@/components/Device/DeviceMenu.vue'
 import router from '@/router'
-
 import useDeviceStore from '@/store/devices'
+import { NButton, NIcon, NSpace, NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 
 const deviceStore = useDeviceStore()
@@ -14,7 +14,9 @@ const currentUuid = computed(() => router.currentRoute.value.params.uuid as stri
 const currentDevice = computed(() =>
   deviceStore.devices.find(device => device.uuid === currentUuid.value)
 )
-const otherDevices = deviceStore.devices.filter(device => device.uuid !== currentUuid.value)
+const otherDevices = computed(() =>
+  deviceStore.devices.filter(device => device.uuid !== currentUuid.value)
+)
 </script>
 
 <template>
@@ -30,10 +32,7 @@ const otherDevices = deviceStore.devices.filter(device => device.uuid !== curren
         <NTooltip>
           <template #trigger>
             <NButton
-              :disabled="
-                currentDevice?.status !== 'connected'
-                // undefined
-              "
+              :disabled="currentDevice?.status !== 'connected'"
               text
               style="font-size: 24px"
               @click="$router.push({ path: `/tool/${currentUuid}` })"
@@ -58,7 +57,7 @@ const otherDevices = deviceStore.devices.filter(device => device.uuid !== curren
       </NSpace>
     </NSpace>
     <div class="current-device">
-      <DeviceCard :device="currentDevice!" />
+      <DeviceMenu :device="currentDevice!" />
     </div>
     <h2>其他设备</h2>
     <div class="other-devices">

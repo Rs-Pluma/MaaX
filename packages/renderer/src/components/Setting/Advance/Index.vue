@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import { inject } from 'vue'
-import { NSelect, NFormItem, NSpace, NButton } from 'naive-ui'
-import { showMessage } from '@/utils/message'
-import { confirm } from '@/utils/dialog'
 import useSettingStore from '@/store/settings'
-import { TouchMode } from '@type/misc'
 import { changeTouchMode } from '@/utils/core_functions'
+import { confirm } from '@/utils/dialog'
+import { showMessage } from '@/utils/message'
+import { TouchMode } from '@type/misc'
+import { NButton, NFormItem, NSelect, NSpace } from 'naive-ui'
+import { inject } from 'vue'
 
 const settingStore = useSettingStore()
 
@@ -42,7 +42,7 @@ async function removeAllConfigDialog() {
     negativeText: '取消',
     maskClosable: false,
     onPositiveClick: async () => {
-      await window.ipcRenderer.invoke('main.Util:RemoveAllConfig')
+      await window.main.Util.RemoveAllConfig()
     },
   })
 }

@@ -1,8 +1,7 @@
-import { $ } from '@main/utils/shell'
-import { getPlatform } from '@main/utils/os'
-import WindowManager from '@main/windowManager'
 import logger from '@main/utils/logger'
-import { ipcMainHandle } from '@main/utils/ipc-main'
+import { getPlatform } from '@main/utils/os'
+import { $ } from '@main/utils/shell'
+import WindowManager from '@main/windowManager'
 
 async function shutdownEmulator(pid: string): Promise<void> {
   logger.silly('Shutdown Emulator')
@@ -25,7 +24,7 @@ async function shutdownMAA(): Promise<void> {
 }
 
 async function shutdownComputer(): Promise<void> {
-  logger.silly('Shutdown MAA')
+  logger.silly('Shutdown Computer')
   const platform = getPlatform()
 
   if (platform === 'windows') {
@@ -38,14 +37,14 @@ async function shutdownComputer(): Promise<void> {
 }
 
 export default function useShutdownHooks(): void {
-  ipcMainHandle('main.ScheduleRunner:shutdown', async (event, arg) => {
-    if (arg.option === 'shutdownEmulator') {
-      await shutdownEmulator(arg.pid)
-    } else if (arg.option === 'shutdownAll') {
-      await shutdownEmulator(arg.pid)
+  globalThis.main.ScheduleRunner.shutdown = async ({ option, pid }) => {
+    if (option === 'shutdownEmulator') {
+      await shutdownEmulator(pid)
+    } else if (option === 'shutdownAll') {
+      await shutdownEmulator(pid)
       await shutdownMAA()
-    } else if (arg.option === 'shutdownComputer') {
+    } else if (option === 'shutdownComputer') {
       await shutdownComputer()
     }
-  })
+  }
 }

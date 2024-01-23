@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { setupHookProxy } from '@/hooks'
+import { onMounted, ref } from 'vue'
 
 const isMaximized = ref(false)
 
 onMounted(() => {
-  window.ipcRenderer.invoke('main.WindowManager:isMaximized').then(result => {
+  window.main.WindowManager.isMaximized().then(result => {
     isMaximized.value = result
   })
 })
 
-window.ipcRenderer.on('renderer.WindowManager:updateMaximized', (_, maximized) => {
+setupHookProxy()
+window.renderer.WindowManager.updateMaximized = maximized => {
   isMaximized.value = maximized
-})
+}
 </script>
 
 <template>

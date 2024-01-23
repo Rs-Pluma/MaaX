@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NSpace, NButton } from 'naive-ui'
+import { NButton, NSpace } from 'naive-ui'
 import { onMounted, ref } from 'vue'
 
 const loading = ref(false)
@@ -21,17 +21,17 @@ function formatBytes(bytes: number): string {
 
 async function refreshStatus() {
   loading.value = true
-  cacheInfo.value = await window.ipcRenderer.invoke('main.Util:GetCacheInfo')
+  cacheInfo.value = await window.main.Util.GetCacheInfo()
   loading.value = false
 }
 
 async function cleanLogs() {
-  await window.ipcRenderer.invoke('main.Util:CleanLogs')
+  await window.main.Util.CleanLogs()
   refreshStatus()
 }
 
 async function cleanDownloadCache() {
-  await window.ipcRenderer.invoke('main.Util:CleanDownloadCache')
+  await window.main.Util.CleanDownloadCache()
   refreshStatus()
 }
 

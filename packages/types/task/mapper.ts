@@ -94,6 +94,7 @@ export type CoreTaskObjectMapper = {
     roles?: RolesType
     core_char?: string
     use_support?: boolean
+    refresh_trader_with_dice? : boolean
     use_nonfriend_support?: boolean
   } & (
     | {
@@ -163,10 +164,6 @@ export type FrontTaskObjectMapper = {
   Shutdown: {
     enable?: boolean
     option: 'shutdownEmulator' | 'shutdownAll' | 'shutdownComputer'
-    delay: number
-  }
-  Idle: {
-    enable?: boolean
     delay: number
   }
 }

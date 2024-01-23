@@ -1,13 +1,14 @@
+import logger from '@main/utils/logger'
+import { getAppBaseDir } from '@main/utils/path'
+import type { ComponentType } from '@type/componentManager'
 import fs from 'fs'
 import path from 'path'
 
-import logger from '@main/utils/logger'
-import type { ReleaseObject, UpdateStatus } from '../types'
-import type { ComponentType } from '@type/componentManager'
-import { getAppBaseDir } from '@main/utils/path'
+import type { ReleaseObject, SourceMirror, UpdateStatus } from '../types'
+import { getComponentBaseDir } from './path'
 
 export function infoPathOf(componentDir: string) {
-  const dir = path.join(getAppBaseDir(), componentDir)
+  const dir = path.join(getComponentBaseDir(), componentDir)
   return {
     installRoot: dir,
     currentVersion: path.join(dir, 'version'),
@@ -23,7 +24,8 @@ export function createCheckUpdate(
     Full: () => RegExp
   },
   component: ComponentType,
-  componentDir: string
+  componentDir: string,
+  getSource: () => SourceMirror
 ) {
   return async (): Promise<UpdateStatus> => {
     const release = (await getRelease()) ?? null
@@ -91,7 +93,7 @@ export function createCheckUpdate(
         )
       }
     }
-
+    // logger.debug(assets)
     const full = assetName.Full()
     const item = assets.find(asset => full.test(asset.name))
 
@@ -109,7 +111,7 @@ export function createCheckUpdate(
     return {
       msg: 'haveUpdate',
       update: {
-        url: item.browser_download_url,
+        url: getSource().urlReplacer(item.browser_download_url),
         version: latestVersion,
         releaseDate: published_at,
         postUpgrade: () => {

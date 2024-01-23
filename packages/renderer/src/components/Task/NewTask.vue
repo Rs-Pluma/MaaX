@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { NCollapse, NCollapseItem, NScrollbar, NSpace, useThemeVars, NDropdown } from 'naive-ui'
-import { ref, nextTick } from 'vue'
-import router from '@/router'
-import useThemeStore from '@/store/theme'
-import type { DropdownMixedOption } from 'naive-ui/es/dropdown/src/interface'
 import logger from '@/hooks/caller/logger'
+import router from '@/router'
 import useTaskStore from '@/store/tasks'
 import type { Task } from '@type/task'
+import { NCollapse, NCollapseItem, NDropdown, NSpace, NText, useThemeVars } from 'naive-ui'
+import type { DropdownMixedOption } from 'naive-ui/es/dropdown/src/interface'
+import { nextTick, ref } from 'vue'
+import { computed } from 'vue'
 
 const themeVars = useThemeVars()
 
 const taskStore = useTaskStore()
-const uuid = router.currentRoute.value.params.uuid as string
+const uuid = computed(() => router.currentRoute.value.params.uuid as string)
 
 const props = defineProps<{
   isCollapsed: boolean
 }>()
 
 function handleSelectNewTask(key: Task['name']): void {
-  if (taskStore.copyTaskFromTemplate(uuid, key)) {
-    logger.info('copy task from template', key)
+  if (taskStore.copyTaskFromTemplate(uuid.value, key)) {
+    showDropdown.value = false
+    logger.info(`copy task from template, uuid: ${uuid.value}, key: ${key}`)
   }
 }
 
@@ -81,11 +82,7 @@ const options: DropdownMixedOption[] = [
     key: 'other_task',
     children: [
       {
-        label: '挂机',
-        key: 'Idle',
-      },
-      {
-        label: '每日一抽',
+        label: '这里暂时什么都没有哦',
         key: 'null',
       },
     ],
@@ -121,9 +118,12 @@ const handleClickOutside = () => {
     <template #arrow>
       <span />
     </template>
-    <div class="task-card-inner" :style="{
-        border: `3px dashed ${themeVars.borderColor}`
-      }">
+    <div
+      class="task-card-inner"
+      :style="{
+        border: `3px dashed ${themeVars.borderColor}`,
+      }"
+    >
       <NCollapseItem name="1" display-directive="show">
         <template #header>
           <div class="card-header" />
@@ -131,13 +131,19 @@ const handleClickOutside = () => {
         <div class="card-content" />
       </NCollapseItem>
       <div class="dropdown-area" @contextmenu="handleShowDropdown">
-        <NSpace justify="center" align="center" style="height: 100%;">
+        <NSpace justify="center" align="center" style="height: 100%">
           <NText>点击鼠标右键创建新任务</NText>
         </NSpace>
       </div>
-      <NDropdown trigger="manual" :options="options" @select="handleSelectNewTask"
-        :x="dropdownPosition.x" :y="dropdownPosition.y" :show="showDropdown"
-        :on-clickoutside="handleClickOutside">
+      <NDropdown
+        trigger="manual"
+        :options="options"
+        @select="handleSelectNewTask"
+        :x="dropdownPosition.x"
+        :y="dropdownPosition.y"
+        :show="showDropdown"
+        :on-clickoutside="handleClickOutside"
+      >
       </NDropdown>
     </div>
   </NCollapse>

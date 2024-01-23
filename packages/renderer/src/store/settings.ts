@@ -1,8 +1,8 @@
-import { defineStore } from 'pinia'
-import { useI18n } from 'vue-i18n'
 import version from '@/hooks/caller/version'
-import { TouchMode } from '@type/misc'
+import { i18n } from '@/i18n'
 import type { ResourceType } from '@type/game'
+import { TouchMode } from '@type/misc'
+import { defineStore } from 'pinia'
 
 export enum Locale {
   zhCN = 'ZhCN',
@@ -28,6 +28,7 @@ export interface SettingState {
   monsters: boolean
   touchMode: TouchMode
   hintCoreNotInstalled: boolean
+  componentDir?: string
 }
 
 export interface SettingAction {
@@ -41,6 +42,7 @@ export interface SettingAction {
   setTouchMode: (mode: TouchMode) => void
   dontShowCoreNotInstalled: () => void
   changeReportToPenguin(checked: boolean): void
+  updateComponentBaseDir(dir: string): void
 }
 
 export interface SettingGetters {
@@ -65,6 +67,7 @@ const useSettingStore = defineStore<'setting', SettingState, SettingGetters, Set
         monsters: false,
         touchMode: TouchMode.minitouch,
         hintCoreNotInstalled: true,
+        componentDir: '',
       }
     },
     getters: {
@@ -88,8 +91,7 @@ const useSettingStore = defineStore<'setting', SettingState, SettingGetters, Set
           this.toggleMonsters()
         }
         this._locale = locale
-        const i18n = useI18n()
-        i18n.locale.value = this.locale
+        i18n.global.locale.value = this.locale
       },
       async updateVersionInfo() {
         this.version.core.current = (await version.core()) ?? undefined
@@ -102,8 +104,7 @@ const useSettingStore = defineStore<'setting', SettingState, SettingGetters, Set
         } else {
           document.body.className = ''
         }
-        const i18n = useI18n()
-        i18n.locale.value = this.locale
+        i18n.global.locale.value = this.locale
       },
       setTouchMode(mode: TouchMode) {
         this.touchMode = mode
@@ -116,6 +117,9 @@ const useSettingStore = defineStore<'setting', SettingState, SettingGetters, Set
       },
       changeReportToPenguin(checked: boolean) {
         this.report_to_penguin = checked
+      },
+      updateComponentBaseDir(dir: string) {
+        this.componentDir = dir
       },
     },
   }

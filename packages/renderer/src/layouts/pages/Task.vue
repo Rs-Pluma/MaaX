@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { computed, ref, provide, watch } from 'vue'
-import { NSpace, NButton, NSwitch, NIcon, NTooltip, NSelect, type SelectOption } from 'naive-ui'
-import _ from 'lodash'
-import Draggable from 'vuedraggable'
-import TaskCard from '@/components/Task/TaskCard.vue'
-import NewTask from '@/components/Task/NewTask.vue'
-import IconList from '@/assets/icons/list.svg?component'
+import IconEdit from '@/assets/icons/edit.svg?component'
 import IconGrid from '@/assets/icons/grid.svg?component'
+import IconList from '@/assets/icons/list.svg?component'
+import IconTimer from '@/assets/icons/timer.svg?component'
+import NewTask from '@/components/Task/NewTask.vue'
+import TaskCard from '@/components/Task/TaskCard.vue'
+import TaskGroupEditModal from '@/components/Task/TaskGroupEditModal.vue'
 import Configuration from '@/components/Task/configurations/Index.vue'
-import TaskGroupActions from '@/components/Task/TaskGroupActions.vue'
-
-import useTaskStore from '@/store/tasks'
-import useDeviceStore from '@/store/devices'
-import useSettingStore from '@/store/settings'
-import { showMessage } from '@/utils/message'
-
-import router from '@/router'
 import Result from '@/components/Task/results/Index.vue'
 import logger from '@/hooks/caller/logger'
-import { runTasks, runStartEmulator } from '@/utils/task_runner'
+import router from '@/router'
+import useDeviceStore from '@/store/devices'
+import useSettingStore from '@/store/settings'
+import useTaskStore from '@/store/tasks'
+import { showMessage } from '@/utils/message'
+import { runStartEmulator, runTasks } from '@/utils/task_runner'
 import type { InitCoreParam } from '@type/ipc'
 import type { GetTask } from '@type/task'
+import _ from 'lodash'
+import { NButton, NIcon, NSelect, NSpace, NSwitch, NTooltip, type SelectOption } from 'naive-ui'
+import { computed, provide, ref, watch } from 'vue'
+import Draggable from 'vuedraggable'
 
 const taskStore = useTaskStore()
 const deviceStore = useDeviceStore()
@@ -29,6 +29,8 @@ const settingStore = useSettingStore()
 const touchMode = computed(() => settingStore.touchMode)
 const isGrid = ref(false)
 const actionLoading = ref(false)
+const showTaskGroupEdit = ref(false)
+const showTimerEdit = ref(false)
 
 const uuid = computed(() => router.currentRoute.value.params.uuid as string)
 const device = computed(() => deviceStore.devices.find(device => device.uuid === uuid.value))
@@ -68,12 +70,12 @@ async function handleStartUnconnected(task: GetTask<'Emulator'>) {
   deviceStore.updateDeviceStatus(uuid.value, 'tasking')
   await runStartEmulator(uuid.value, task)
   task.schedule_id = setTimeout(async () => {
-    const devices: any[] = await window.ipcRenderer.invoke('main.DeviceDetector:getEmulators') // 等待时间结束后进行一次设备搜索，但不合并结果
+    const devices: any[] = await window.main.DeviceDetector.getEmulators() // 等待时间结束后进行一次设备搜索，但不合并结果
     const device = devices.find(device => device.uuid === uuid.value) // 检查指定uuid的设备是否存在
     if (device) {
       // 设备活了
       logger.debug(device)
-      const status = await window.ipcRenderer.invoke('main.CoreLoader:initCore', {
+      const status = await window.main.CoreLoader.initCore({
         // 创建连接
         address: device.address,
         uuid: device.uuid,
@@ -105,14 +107,14 @@ async function handleSubStart() {
   deviceStore.updateDeviceStatus(uuid.value as string, 'tasking')
   await runTasks(uuid.value)
   // logger.info('in substart')
-  // await window.ipcRenderer.invoke('main.CoreLoader:start', {
+  // await window.main.CoreLoader.start({
   //   uuid: uuid.value,
   // })
 }
 
 async function handleSubStop() {
   actionLoading.value = true
-  const status = await window.ipcRenderer.invoke('main.CoreLoader:stop', {
+  const status = await window.main.CoreLoader.stop({
     uuid: uuid.value,
   }) // 等待core停止任务
   actionLoading.value = false
@@ -136,7 +138,16 @@ async function handleStart() {
   } else if (device && device.status === 'available') {
     // 设备可用但未连接, 先尝试连接再开始任务
     deviceStore.updateDeviceStatus(device.uuid as string, 'waitingTask')
-    await window.ipcRenderer.invoke('main.CoreLoader:initCoreAsync', {
+    await window.main.CoreLoader.initCoreAsync({
+      address: device.address,
+      uuid: device.uuid,
+      adb_path: device.adbPath,
+      config: device.config,
+      touch_mode: touchMode.value,
+    })
+  } else if (device && device.config === 'General') {
+    deviceStore.updateDeviceStatus(device.uuid as string, 'waitingTask')
+    await window.main.CoreLoader.initCoreAsync({
       address: device.address,
       uuid: device.uuid,
       adb_path: device.adbPath,
@@ -154,7 +165,7 @@ async function handleStart() {
     //     if (await deviceStore.wakeUpDevice(uuid.value)) {
     //       // 有启动参数, 且自启成功
     //       deviceStore.updateDeviceStatus(device.uuid as string, 'waitingTask')
-    //       await window.ipcRenderer.invoke('main.CoreLoader:initCore', {
+    //       await window.main.CoreLoader.initCore({
     //         address: device.address,
     //         uuid: device.uuid,
     //         adb_path: device.adbPath,
@@ -207,6 +218,14 @@ function handleChangeTaskGroupIndex(value: number) {
   taskStore.deviceTasks[uuid.value].currentId = value
 }
 
+function handleChangeTaskGroupName(value: string) {
+  taskStore.changeTaskGroupName(uuid.value, currentTaskGroupIndexValue.value, value)
+}
+
+function handleDeleteTaskGroup() {
+  taskStore.deleteTaskGroup(uuid.value, currentTaskGroup.value!.id)
+}
+
 const taskGroupOptions = computed(() => {
   const options: SelectOption[] = []
   taskStore.deviceTasks[uuid.value]?.groups.forEach(v => {
@@ -232,7 +251,12 @@ const currentTaskGroup = computed(() => taskStore.getCurrentTaskGroup(uuid.value
     <NSpace justify="space-between" align="center">
       <h2>任务</h2>
       <NSpace align="center">
-        <TaskGroupActions :device-uuid="uuid" :task-group="currentTaskGroup" />
+        <TaskGroupEditModal
+          v-model:show="showTaskGroupEdit"
+          :name="currentTaskGroup?.name ?? ''"
+          @change:name="handleChangeTaskGroupName"
+          @delete="handleDeleteTaskGroup"
+        />
         <NSelect
           v-model:value="currentTaskGroupIndexValue"
           :options="taskGroupOptions"
@@ -243,7 +267,20 @@ const currentTaskGroup = computed(() => taskStore.getCurrentTaskGroup(uuid.value
             <NButton text @click="handleCreateNewTaskGroup"> 点此新建任务组 </NButton>
           </template>
         </NSelect>
-
+        <NButton size="small" quaternary circle @click="showTaskGroupEdit = true">
+          <template #icon>
+            <NIcon>
+              <IconEdit />
+            </NIcon>
+          </template>
+        </NButton>
+        <NButton size="small" quaternary circle>
+          <template #icon>
+            <NIcon>
+              <IconTimer />
+            </NIcon>
+          </template>
+        </NButton>
         <NTooltip class="detail-toggle-switch">
           <template #trigger>
             <NSwitch v-model:value="isGrid" size="large">
@@ -317,9 +354,11 @@ const currentTaskGroup = computed(() => taskStore.getCurrentTaskGroup(uuid.value
   }
 
   &.cards-grid :deep(.task-card) {
+    --gap-size: 10px;
+    --gap-percentage: 1%;
     display: inline-block;
-    width: 48%;
-    margin: min(1%, 10px);
+    width: calc(50% - calc(min(var(--gap-percentage), var(--gap-size)) * 2));
+    margin: min(var(--gap-percentage), var(--gap-size));
   }
 
   &.cards-grid :deep(.task-card:nth-child(odd)) {

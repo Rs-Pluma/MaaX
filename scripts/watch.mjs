@@ -1,6 +1,26 @@
 import { spawn } from 'child_process'
-import { createServer, build } from 'vite'
 import electron from 'electron'
+import { build, createServer } from 'vite'
+import path from 'path'
+import fs from 'fs-extra'
+import { fileURLToPath } from 'url';
+
+
+let aliveInst = 0
+let quitTimer = null
+
+function startQuit() {
+  quitTimer = setTimeout(() => {
+    process.exit(0)
+  }, 5000)
+}
+
+function stopQuit() {
+  if (quitTimer) {
+    clearTimeout(quitTimer)
+    quitTimer = null
+  }
+}
 
 /**
  * @type {(server: import('vite').ViteDevServer) => Promise<import('rollup').RollupWatcher>}
@@ -23,11 +43,20 @@ function watchMain(server) {
       {
         name: 'electron-main-watcher',
         writeBundle() {
+          stopQuit()
+          aliveInst += 1
           electronProcess && electronProcess.kill()
           electronProcess = spawn(electron, ['.', '--inspect'], {
             stdio: 'inherit',
             env,
           })
+          electronProcess.on('exit', () => {
+            aliveInst -= 1
+            if (aliveInst === 0) {
+              startQuit()
+            }
+          })
+
         },
       },
     ],

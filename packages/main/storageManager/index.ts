@@ -1,10 +1,10 @@
-import path from 'path'
-import fs from 'fs'
-import { app } from 'electron'
-import _ from 'lodash'
-import logger from '@main/utils/logger'
 import { Singleton } from '@common/function/singletonDecorator'
+import logger from '@main/utils/logger'
 import type { Module } from '@type/misc'
+import { app } from 'electron'
+import fs from 'fs'
+import _ from 'lodash'
+import path from 'path'
 
 type StorageOption<T> = Partial<{
   defaults: T
@@ -46,7 +46,7 @@ class Storage<T extends Object> implements Module {
     return '1.0.0'
   }
 
-  get(key: string): any {
+  get(key: string | string[]): any {
     return _.get(this.m_storage, key)
   }
 

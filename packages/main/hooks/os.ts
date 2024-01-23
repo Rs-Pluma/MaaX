@@ -1,9 +1,19 @@
-import { ipcMainHandle } from '@main/utils/ipc-main'
-import { getArch, getPlatform, getSystemInformation, reload } from '@main/utils/os'
+import {
+  generateIdempotentKey,
+  getArch,
+  getPlatform,
+  getSystemInformation,
+  isInDev,
+  reload,
+} from '@main/utils/os'
 
 export default function useOsHooks(): void {
-  ipcMainHandle('main.Util:getOsArch', event => getArch())
-  ipcMainHandle('main.Util:getOsPlatform', event => getPlatform())
-  ipcMainHandle('main.Util:getSystemInformation', event => getSystemInformation())
-  ipcMainHandle('main.Util:restart', event => reload())
+  globalThis.main.Util = {
+    getOsArch: getArch,
+    getOsPlatform: getPlatform,
+    getSystemInformation,
+    restart: reload,
+    generateIdempotentKey,
+    isInDev,
+  }
 }

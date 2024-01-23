@@ -1,8 +1,10 @@
 import type { ComponentType } from '@type/componentManager'
-import type { Callback } from '@type/task/callback'
 import type { DeviceStatus, NativeDevice } from '@type/device'
 import type { InstallerStatus } from '@type/misc'
+import type { Callback } from '@type/task/callback'
 import type { MessageOptions } from 'naive-ui'
+
+import type { CalleeProxyObjectType, CallerProxyObjectType } from './utils'
 
 export type IpcRendererOnEventType = {
   'renderer.WindowManager:updateMaximized': (isMaximized: boolean) => void
@@ -33,8 +35,14 @@ export type IpcRendererOnEventType = {
     status: InstallerStatus
     progress: 0
   }) => void
-  'renderer.Device:getScreenshot': (arg: { uuid: string }) => void
+  // 'renderer.Device:getScreenshot': (arg: { uuid: string }) => void
 }
 
 // 通过ipcRenderer.on定义的事件名称
 export type IpcRendererOnEvent = keyof IpcRendererOnEventType
+export type IpcRendererOnEventProxy = CallerProxyObjectType<IpcRendererOnEventType, 'renderer'>
+export type IpcRendererOnEventCalleeProxy = CalleeProxyObjectType<
+  IpcRendererOnEventType,
+  'renderer',
+  Electron.IpcRendererEvent
+>

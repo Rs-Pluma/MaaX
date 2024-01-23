@@ -1,9 +1,11 @@
-import type { Systeminformation } from 'systeminformation'
 import type { Arch, Platform } from '@type/api/maa'
-import type { ComponentType, ComponentStatus } from '@type/componentManager'
-import type { DialogProperty, TouchMode } from '@type/misc'
+import type { ComponentStatus, ComponentType } from '@type/componentManager'
 import type { Device, Emulator } from '@type/device'
-import type { Acrylic } from '@type/appearanceManager/theme'
+import type { ResourceType } from '@type/game'
+import type { DialogProperty, TouchMode } from '@type/misc'
+import type { Systeminformation } from 'systeminformation'
+
+import type { CalleeProxyObjectType, CallerProxyObjectType } from './utils'
 
 export interface InitCoreParam {
   address: string
@@ -46,6 +48,7 @@ export type IpcMainHandleEventTypeAutoRegister = {
   'main.CoreLoader:asyncScreencap': (arg: { uuid: string }) => number | boolean
   // WARN: 该方法尚未实现
   'main.CoreLoader:getScreencap': (arg: { uuid: string }) => Promise<{ screenshot: string }>
+  'main.CoreLoader:isCoreInited': (arg: { uuid: string }) => boolean
 }
 
 export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
@@ -54,7 +57,7 @@ export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
   // 'main.CoreLoader:getCorePath'
   'main.CoreLoader:getCoreVersion': () => string | null
   'main.CoreLoader:upgrade': () => Promise<void>
-
+  'main.CoreLoader:updateTaskJson': (arg: { type: ResourceType; data: string }) => Promise<void>
   'main.ScheduleRunner:shutdown': (arg: {
     option: 'shutdownEmulator' | 'shutdownAll' | 'shutdownComputer'
     pid: string
@@ -64,6 +67,7 @@ export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
   ) => Promise<ComponentStatus | undefined>
   'main.ComponentManager:install': (componentName: ComponentType) => Promise<void>
   'main.ComponentManager:upgrade': (componentName: ComponentType) => Promise<void>
+  'main.ComponentManager:getAvailableMirrors': (componentName: ComponentType) => Promise<string[]>
   'main.DeviceDetector:getAdbPath': () => string
   'main.DeviceDetector:getAdbDevices': () => Promise<Device[]>
   'main.DeviceDetector:getEmulators': () => Promise<Emulator[]>
@@ -80,6 +84,8 @@ export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
   'main.Util:getUiVersion': () => string
   'main.Util:getSystemInformation': () => Promise<Systeminformation.StaticData>
   'main.Util:getSystemStatus': () => boolean
+  'main.Util:generateIdempotentKey': () => string
+  'main.Util:isInDev': () => boolean
   'main.Util:LogSilly': (...params: any[]) => void
   'main.Util:LogDebug': (...params: any[]) => void
   'main.Util:LogTrace': (...params: any[]) => void
@@ -93,8 +99,10 @@ export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
   'main.Util:GetCacheInfo': () => { log: number; download: number }
   'main.Util:openFolder': (type: 'core' | 'ui-log' | 'core-log') => void
   'main.Util:restart': () => void
-  'main.Util:updateUA': (args: { urls: string[]; UA: string }) => void
-  'main.Util:updatePenguinUA': (args: { UA: string }) => void
+  'main.Util:openExternal': (url: string) => void
+  'main.Util:saveTempJson': (data: string) => string
+  'main.Util:moveComponentBaseDir': (dir: string) => Promise<boolean>
+  'main.Util:removeComponent': (component: ComponentType) => Promise<void>
   'main.Task:readInfrastConfig': (args: { filepath: string }) => string
   'main.StorageManager:get': (key: string) => any
   'main.StorageManager:set': (key: string, val: any) => boolean
@@ -114,10 +122,9 @@ export type IpcMainHandleEventType = IpcMainHandleEventTypeAutoRegister & {
 
 // 通过ipcMainHandle定义的事件名称
 export type IpcMainHandleEvent = keyof IpcMainHandleEventType
-
-export type IpcMainOnEventType = {
-  'main.WindowManager:closeWindow': () => void
-}
-
-// 通过send调用的事件
-export type IpcMainOnEvent = keyof IpcMainOnEventType
+export type IpcMainHandleEventProxy = CallerProxyObjectType<IpcMainHandleEventType, 'main'>
+export type IpcMainHandleEventCalleeProxy = CalleeProxyObjectType<
+  IpcMainHandleEventType,
+  'main',
+  Electron.IpcMainInvokeEvent
+>

@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { NIcon, NSpace, NButton, NTooltip, NText, NTime, useDialog } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
 import IconRefresh from '@/assets/icons/refresh.svg?component'
 import IconSettings from '@/assets/icons/settings.svg?component'
 import DeviceCard from '@/components/Device/DeviceCard.vue'
-
 import useDeviceStore from '@/store/devices'
 import useSettingStore from '@/store/settings'
-
 import { showMessage } from '@/utils/message'
 import type { Device } from '@type/device'
+import { NButton, NIcon, NSpace, NText, NTime, NTooltip, useDialog } from 'naive-ui'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const dialog = useDialog()
 const { t } = useI18n()
@@ -74,7 +72,7 @@ function deviceInfoParser(devices: Device[]): any[] {
 }
 
 async function handleRefreshDevices() {
-  const is_exist = await window.ipcRenderer.invoke('main.DeviceDetector:isDefaultAdbExists')
+  const is_exist = await window.main.DeviceDetector.isDefaultAdbExists()
   if (!is_exist) {
     showMessage(t('device.adbNotAvailable'), {
       type: 'error',
@@ -89,8 +87,7 @@ async function handleRefreshDevices() {
     duration: 0,
   })
 
-  window.ipcRenderer
-    .invoke('main.DeviceDetector:getEmulators')
+  window.main.DeviceDetector.getEmulators()
     .then(ret => {
       // FIXME: Emulator无法转换为Device
       const devices = deviceInfoParser(ret)

@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import IconDisconnect from '@/assets/icons/disconnect.svg?component'
-import DeviceDetailPopover from '@/components/Device/DeviceDetailPopover.vue'
 import IconLink from '@/assets/icons/link.svg?component'
-import { NButton, NTooltip, NIcon, NSpace, NPopconfirm, useThemeVars } from 'naive-ui'
-
-import useDeviceStore from '@/store/devices'
+import DeviceDetailPopover from '@/components/Device/DeviceDetailPopover.vue'
 import router from '@/router'
-import useTaskStore from '@/store/tasks'
+import useDeviceStore from '@/store/devices'
 import useSettingStore from '@/store/settings'
+import useTaskStore from '@/store/tasks'
 // import useTaskIdStore from '@/store/taskId'
 import { showMessage } from '@/utils/message'
 import type { Device, DeviceStatus } from '@type/device'
 import type { InitCoreParam } from '@type/ipc'
+import { NButton, NIcon, NPopconfirm, NPopover, NSpace, NTooltip, useThemeVars } from 'naive-ui'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   device: Device
 }>()
+
+const showDetail = ref(false)
 
 const themeVars = useThemeVars()
 const deviceStore = useDeviceStore()
@@ -45,17 +46,6 @@ const disconnectedStatus: Set<DeviceStatus> = new Set([
 // function connectDevice (uuid: string) {}
 
 function handleJumpToTask() {
-  // 未连接的设备也可以查看任务
-  // 2023.4.19: 先不做支持了，这会导致一些ui上的问题，比如正在连接的消息框无法关闭
-  //            理想方案是把正在连接的消息框变成全局唯一实例
-
-  // FIXME: feature要! 框的bug再修
-
-  // if (!connectedStatus.has(props.device.status)) {
-  //   // TODO: 提示设备未连接
-  //   return
-  // }
-  // 4.20完成了
   if (!taskStore.getCurrentTaskGroup(props.device.uuid)) {
     taskStore.initDeviceTask(props.device.uuid)
   }
@@ -65,7 +55,7 @@ function handleJumpToTask() {
 
 function handleDeviceDisconnect() {
   // task stop
-  window.ipcRenderer.invoke('main.CoreLoader:disconnectAndDestroy', {
+  window.main.CoreLoader.disconnectAndDestroy({
     uuid: props.device.uuid,
   })
   taskStore.stopAllTasks(props.device.uuid as string)
@@ -88,12 +78,16 @@ async function handleDeviceConnect() {
   // 无地址, 尝试唤醒模拟器
   if (!props.device.address || props.device.address.length === 0) {
     if (!(await deviceStore.wakeUpDevice(props.device.uuid))) {
+      showMessage('无法连接模拟器', {
+        type: 'error',
+        duration: 3000,
+      })
       return
     }
   }
 
-  deviceStore.updateDeviceStatus(props.device.uuid as string, 'connecting')
-  await window.ipcRenderer.invoke('main.CoreLoader:initCoreAsync', {
+  deviceStore.updateDeviceStatus(props.device.uuid, 'connecting')
+  await window.main.CoreLoader.initCoreAsync({
     address: props.device.address,
     uuid: props.device.uuid,
     adb_path: props.device.adbPath,
@@ -104,14 +98,7 @@ async function handleDeviceConnect() {
 </script>
 
 <template>
-  <div
-    v-if="device"
-    class="device-card"
-    :class="isCurrent ? 'current' : ''"
-    :style="{
-      backgroundColor: isCurrent ? themeVars.hoverColor : 'transparent',
-    }"
-  >
+  <div v-if="device" class="device-card" :class="isCurrent ? 'current' : ''">
     <NButton
       class="device-info"
       text
@@ -142,11 +129,16 @@ async function handleDeviceConnect() {
           })()
         }}
       </NTooltip>
-      <DeviceDetailPopover :uuid="props.device.uuid">
-        <div class="device-name">
-          {{ deviceDisplayName }}
-        </div>
-      </DeviceDetailPopover>
+      <NPopover v-model:show="showDetail" :duration="500">
+        <template #trigger>
+          <div class="device-name">
+            {{ deviceDisplayName }}
+          </div>
+        </template>
+        <template #default>
+          <DeviceDetailPopover :device="props.device" />
+        </template>
+      </NPopover>
     </NButton>
     <NSpace :align="'center'">
       <NPopconfirm
@@ -218,14 +210,18 @@ async function handleDeviceConnect() {
 
   &::before {
     content: '';
+    box-sizing: border-box;
     position: absolute;
     border-radius: 100%;
-    background-color: gray;
     height: 100%;
     width: 100%;
     top: 0;
     left: 0;
     transition: background-color 0.3s var(--n-bezier);
+  }
+
+  &[data-status='unknown']::before {
+    border: 2px solid #a8aaaf;
   }
 
   &[data-status='available']::before {

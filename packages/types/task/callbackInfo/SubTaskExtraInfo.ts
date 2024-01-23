@@ -1,11 +1,12 @@
 import type {
-  RecruitTag,
-  OneToSix,
-  Facility,
   DepotResult,
   Depot_ArkPlanner,
   Depot_Lolicon,
+  Facility,
+  OneToSix,
+  RecruitTag,
 } from '@type/game'
+
 import type { CoreTaskName } from '../mapper'
 
 type DropType = 'NORMAL_DROP' | 'SPECIAL_DROP' | 'EXTRA_DROP' | 'FURNITURE'
@@ -79,14 +80,14 @@ export type SubTaskExtraInfoMapper = {
   PenguinId: {
     id: string
   }
-  Depot: {
+  DepotInfo: {
     done: boolean
     arkplanner: DepotResult<Depot_ArkPlanner>
     lolicon: DepotResult<Depot_Lolicon>
   }
-  OperBox: {
+  OperBoxInfo: {
     done: boolean
-    all_oper: {
+    all_opers: {
       id: string
       name: string
       own: boolean
@@ -102,6 +103,19 @@ export type SubTaskExtraInfoMapper = {
       rarity: OneToSix
     }[]
   }
+  CopilotAction: {
+    doc?: string
+    doc_color?: string
+    action: string
+    target: string
+  }
+  SSSStage: {
+    stage: string
+  }
+  SSSSettlement: {
+    why: string
+  }
+  SSSGamePass: {}
   UnsupportedLevel: {}
 }
 

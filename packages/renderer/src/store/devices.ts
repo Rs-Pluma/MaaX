@@ -1,8 +1,9 @@
-import { defineStore } from 'pinia'
 import logger from '@/hooks/caller/logger'
-import { runStartEmulator } from '@/utils/task_runner'
 import { showMessage } from '@/utils/message'
-import type { Device, NativeDevice, DeviceStatus } from '@type/device'
+import { runStartEmulator } from '@/utils/task_runner'
+import type { Device, DeviceStatus, NativeDevice } from '@type/device'
+import type { MessageType } from 'naive-ui'
+import { defineStore } from 'pinia'
 
 export interface DeviceState {
   devices: Device[]
@@ -10,11 +11,12 @@ export interface DeviceState {
 }
 
 export interface DeviceAction {
-  mergeSearchResult: (devices: NativeDevice[]) => void
+  mergeSearchResult: (devices: NativeDevice[]) => Promise<void>
   updateDeviceStatus: (uuid: string, status: DeviceStatus) => void
   removeNotInUseDevice: () => void
   updateDeviceUuid: (oldUuid: string, newUuid: string) => void
   updateDeviceDisplayName: (uuid: string, displayName: string) => void
+  updateCommandLine: (uuid: string, commandLine: string) => void
   getDevice: (uuid: string) => Device | undefined
   deleteDevice: (uuid: string) => void
   wakeUpDevice: (uuid: string) => Promise<boolean>
@@ -29,7 +31,7 @@ const useDeviceStore = defineStore<'device', DeviceState, {}, DeviceAction>('dev
   },
   actions: {
     async mergeSearchResult(devices) {
-      const defaultAdbPath = await window.ipcRenderer.invoke('main.DeviceDetector:getAdbPath')
+      const defaultAdbPath = await window.main.DeviceDetector.getAdbPath()
       this.lastUpdate = Date.now()
       for (const device of devices) {
         const origin = this.devices.find(dev => dev.uuid === device.uuid)
@@ -80,6 +82,12 @@ const useDeviceStore = defineStore<'device', DeviceState, {}, DeviceAction>('dev
         origin.displayName = displayName
       }
     },
+    updateCommandLine(uuid, commandLine) {
+      const origin = this.devices.find(dev => dev.uuid === uuid)
+      if (origin != null) {
+        origin.commandLine = commandLine
+      }
+    },
     deleteDevice(uuid) {
       const index = this.devices.findIndex(d => d.uuid === uuid)
       this.devices.splice(index, 1)
@@ -105,17 +113,29 @@ const useDeviceStore = defineStore<'device', DeviceState, {}, DeviceAction>('dev
         duration: 0,
       })
 
-      if (!origin.commandLine || origin.commandLine === '') {
-        wakeUpMessage.content = `设备 ${
-          origin.displayName as string
-        } 未配置启动命令, 请手动刷新设备`
-        wakeUpMessage.type = 'warning'
-        wakeUpMessage.duration = 3000
+      // 更新神谕
+      const updateWakeUpMessage = (content: string, type: MessageType, duration: number = 3000) => {
         wakeUpMessage.closable = true
+        wakeUpMessage.content = content
+        wakeUpMessage.type = type
+        // 源码里貌似直接修改duration不会重新生成定时器，所以这里手动关闭
+        duration &&
+          setTimeout(() => {
+            try {
+              wakeUpMessage?.destroy?.()
+            } catch (e) {}
+          }, duration)
+      }
+
+      if (!origin.commandLine || origin.commandLine === '') {
+        updateWakeUpMessage(
+          `设备 ${origin.displayName as string} 未配置启动命令, 请手动刷新设备`,
+          'warning'
+        )
         return false
       }
       origin.status = 'connecting'
-      window.ipcRenderer.invoke('main.DeviceDetector:startEmulator2', origin.commandLine)
+      window.main.DeviceDetector.startEmulator2(origin.commandLine)
       const timeout = timeoutGenerator()
       let device
       for (let i = 0; i < connectRetry; i++) {
@@ -123,9 +143,7 @@ const useDeviceStore = defineStore<'device', DeviceState, {}, DeviceAction>('dev
         logger.info(`wait ${to}ms for emulator ${origin.displayName as string} start`)
         await new Promise(resolve => setTimeout(resolve, to))
         // FIXME: Emulator无法转换为Device
-        const devices: Device[] = await window.ipcRenderer.invoke(
-          'main.DeviceDetector:getEmulators'
-        )
+        const devices: Device[] = await window.main.DeviceDetector.getEmulators()
         device = devices.find(d => d.uuid === origin.uuid)
         if (device) {
           origin.status = 'available'
@@ -135,20 +153,14 @@ const useDeviceStore = defineStore<'device', DeviceState, {}, DeviceAction>('dev
           origin.adbPath = device.adbPath
           origin.config = device.config
           origin.commandLine = device.commandLine
-
-          wakeUpMessage.content = `设备 ${origin.displayName as string} 启动成功`
-          wakeUpMessage.type = 'success'
-          wakeUpMessage.duration = 3000
-          wakeUpMessage.closable = true
+          updateWakeUpMessage(`设备 ${origin.displayName as string} 启动成功`, 'success')
           return true // start successfull
         }
       }
       // fail
       origin.status = 'unknown'
       origin.address = ''
-      wakeUpMessage.content = `设备 ${origin.displayName as string} 启动失败`
-      wakeUpMessage.type = 'error'
-      wakeUpMessage.closable = true
+      updateWakeUpMessage(`设备 ${origin.displayName as string} 启动失败`, 'error', 0)
       return false
     },
   },

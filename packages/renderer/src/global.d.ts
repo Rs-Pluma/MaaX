@@ -1,6 +1,6 @@
-import type { MessageApiInjection } from 'naive-ui/lib/message/src/MessageProvider'
+import type { IpcMainHandleEventProxy, IpcRenderer, IpcRendererOnEventCalleeProxy } from '@type/ipc'
 import type { DialogApiInjection } from 'naive-ui/lib/dialog/src/DialogProvider'
-import type { IpcRenderer } from './ipc'
+import type { MessageApiInjection } from 'naive-ui/lib/message/src/MessageProvider'
 
 export {}
 
@@ -12,5 +12,8 @@ declare global {
     $message: MessageApiInjection
     $dialog: DialogApiInjection
     updateLoadingText: (text: string) => void
+
+    main: IpcMainHandleEventProxy
+    renderer: IpcRendererOnEventCalleeProxy
   }
 }
