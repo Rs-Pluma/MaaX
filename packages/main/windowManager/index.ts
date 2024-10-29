@@ -13,7 +13,7 @@ class WindowManager implements Module {
   constructor() {
     this.window_ = new BrowserWindow({
       backgroundColor: '#00000000',
-      frame: getPlatform() === 'macos',
+      frame: getPlatform() != 'windows',
       icon: join(__dirname, '../renderer/assets/icon.png'),
       titleBarOverlay: true,
       // frameless和titleBarStyle: 'hidden'同时开，会显示窗口控制按钮

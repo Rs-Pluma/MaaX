@@ -2,12 +2,27 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Serve(inspector)",
+      "request": "launch",
+      "runtimeArgs": [
+        "scripts/serve.mjs"
+      ],
+      "runtimeExecutable": "node",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "type": "node",
+      "sourceMaps": true
+    },
+    
+    {
       "type": "node",
       "request": "launch",
       "name": "Main(inspector)",
       "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
       "runtimeArgs": [
         "--remote-debugging-port=9222",
+        "--remote-allow-origins=*",
         "${workspaceFolder}/dist/main/index.cjs",
       ],
       "env": {
@@ -22,8 +37,21 @@
       "type": "chrome",
       "request": "launch",
       "name": "Renderer(inspector)",
-      "url": "http://localhost:9222",
-      "webRoot": "${workspaceFolder}/dist/packages/renderer",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "runtimeArgs": [
+        "--remote-debugging-port=9222",
+        "--remote-allow-origins=*",
+        "${workspaceFolder}/dist/main/index.cjs",
+      ],
+      "env": {
+        "DEBUG": "true",
+      },
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "sourceMaps": true,
+      "url": "http://localhost:3344",
+      "webRoot": "${workspaceFolder}/packages/renderer",
     },
     {
       "type": "node",
@@ -32,6 +60,8 @@
       "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
       "runtimeArgs": [
         "${workspaceFolder}/dist/main/index.cjs",
+        "--remote-debugging-port=9222",
+        "--remote-allow-origins=*",
       ],
       "env": {
         "VITE_DEV_SERVER_HOST": "127.0.0.1",
@@ -51,6 +81,22 @@
     },
   ],
   "compounds": [
+    {
+      "name": "main(DEBUG)",
+      "configurations": [
+        "Serve(inspector)",
+        "Main(inspector)",
+      ],
+      "preLaunchTask": ""
+    },
+    {
+      "name": "Renderer(DEBUG)",
+      "configurations": [
+        "Serve(inspector)",
+        "Renderer(inspector)",
+      ],
+      "preLaunchTask": ""
+    },
     {
       "name": "All(inspector)",
       "configurations": [

@@ -1,6 +1,6 @@
 import { MD5 } from 'crypto-js'
 
-const baseUrl = 'https://prts.wiki/images'
+const baseUrl = 'https://media.prts.wiki'
 
 const getFileUrl = (filename: string): string => {
   const hash = String(MD5(filename))
